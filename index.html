@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>全能旅遊助手 V3.4 (匯率基準調整)</title>
+    <title>全能旅遊助手 V3.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -25,7 +25,6 @@
         }
         .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #6366f1; width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* 讓文字在點擊時不會有藍色背景 */
         .no-highlight { -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
@@ -34,10 +33,9 @@
 <div id="app" class="app-container">
     
     <div v-if="showSettings" class="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl max-h-[90vh] overflow-y-auto"> 
             <h3 class="text-xl font-bold mb-4 text-gray-800">🌍 旅程設定</h3>
             <div class="space-y-4">
-                
                 <div>
                     <label class="text-xs font-bold text-gray-500 mb-1 block">目的地 (城市名)</label>
                     <div class="flex space-x-2">
@@ -56,27 +54,16 @@
                         <input v-model="settings.currency" class="w-full bg-gray-50 p-3 rounded-lg border border-gray-200 text-center uppercase">
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-gray-500 mb-1 block">匯率 (1 {{ settings.currency }} = ? TWD)</label>
+                        <label class="text-xs font-bold text-gray-500 mb-1 block">匯率 (1 TWD = ?)</label>
                         <input v-model="settings.rate" type="number" step="0.0001" class="w-full bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
-                        <p class="text-[10px] text-red-500 mt-1 font-bold">*請以您實際兌換到的匯率手動調整，以確保分帳精準！</p>
                     </div>
-                </div>
-
-                <div class="pt-4 border-t border-gray-100">
-                    <label class="text-xs font-bold text-gray-500 mb-2 block flex justify-between items-center">
-                        旅伴名單 (用逗號分隔)
-                        <button @click="addDefaultMember" class="text-indigo-500 text-xs font-medium">+ 新增</button>
-                    </label>
-                    
-                    <div v-for="(member, index) in members" :key="index" class="flex space-x-2 mb-2">
-                        <input v-model="members[index]" :placeholder="`旅伴 ${index + 1}`" class="flex-1 bg-gray-50 p-3 rounded-lg border border-gray-200 outline-none">
-                        <button v-if="members.length > 1" @click="removeMember(index)" class="bg-red-100 text-red-500 w-10 rounded-lg">
-                            <i class="fas fa-trash-alt text-xs"></i>
-                        </button>
-                    </div>
-                    <p class="text-[10px] text-gray-400 mt-1">*第一個旅伴會是預設的付款人</p>
                 </div>
                 
+                <div>
+                    <label class="text-xs font-bold text-gray-500 mb-1 block">旅伴名單 (用逗號分開)</label>
+                    <textarea v-model="membersInput" rows="2" placeholder="我, 旅伴, Peter" class="w-full bg-gray-50 p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                </div>
+
                 <button @click="saveSettings" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-200 mt-2">
                     開始旅程
                 </button>
@@ -103,7 +90,7 @@
             </div>
             <div class="text-right">
                 <div class="bg-white text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold shadow-sm">
-                    1 {{ settings.currency }} ≈ {{ parseFloat(settings.rate).toFixed(3) }} TWD
+                    1 TWD ≈ {{ parseFloat(settings.rate).toFixed(3) }} {{ settings.currency }}
                 </div>
             </div>
         </div>
@@ -200,7 +187,6 @@
         </div>
 
         <div v-if="currentTab === 'wallet'" class="space-y-6">
-            
             <div class="bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden">
                 <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl"><i class="fas fa-coins"></i></div>
                 <p class="text-gray-400 text-xs uppercase tracking-wider mb-1">總支出 (換算約 TWD)</p>
@@ -225,53 +211,30 @@
                 <div class="space-y-3">
                     <input v-model="newExpense.amount" type="number" :placeholder="`金額 (${settings.currency})`" class="w-full bg-gray-50 p-3 rounded-lg border-none focus:ring-2 focus:ring-indigo-500 outline-none">
                     <input v-model="newExpense.note" type="text" placeholder="項目 (例如: 交通卡)" class="w-full bg-gray-50 p-3 rounded-lg border-none focus:ring-2 focus:ring-indigo-500 outline-none">
-                    
-                    <div>
-                        <p class="text-xs font-bold text-gray-500 mb-1">誰付的錢？</p>
-                        <div class="flex space-x-2 overflow-x-auto no-scrollbar pb-1">
-                            <button v-for="m in members" @click="newExpense.payer = m"
-                                :class="newExpense.payer === m ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'"
-                                class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
-                                {{ m }}
-                            </button>
-                        </div>
+                    <div class="flex space-x-2">
+                        <button v-for="m in members" @click="newExpense.payer = m"
+                            :class="newExpense.payer === m ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'"
+                            class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors">
+                            {{ m }}
+                        </button>
                     </div>
-
-                    <div class="pt-2 border-t border-gray-100">
-                        <p class="text-xs font-bold text-gray-500 mb-2">誰要分這筆錢？ (已選 {{ newExpense.split_among.length }} 人)</p>
-                        <div class="flex flex-wrap gap-2">
-                            <button v-for="m in members" @click="toggleSplitMember(m)"
-                                :class="newExpense.split_among.includes(m) ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'"
-                                class="py-2 px-3 rounded-lg text-sm font-medium transition-colors">
-                                {{ m }}
-                            </button>
-                        </div>
-                        
-                        <p v-if="newExpense.split_among.length > 0 && newExpense.amount > 0" class="text-xs text-green-600 mt-2">
-                            每人應攤：{{ parseFloat(newExpense.amount / newExpense.split_among.length).toFixed(2) }} {{ settings.currency }}
-                        </p>
-                    </div>
-
-                    <button @click="addExpense" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-md mt-4">新增紀錄</button>
+                    <button @click="addExpense" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-md">新增紀錄</button>
                 </div>
             </div>
 
             <div class="pb-10">
                 <h3 class="font-bold text-gray-800 mb-3">最近消費</h3>
-                <div v-for="(log, idx) in expenses" :key="idx" class="flex justify-between items-start py-3 border-b border-gray-100">
+                <div v-for="(log, idx) in expenses" :key="idx" class="flex justify-between items-center py-3 border-b border-gray-100">
                     <div class="flex items-center">
                         <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs mr-3">{{ log.payer[0] }}</div>
                         <div>
                             <p class="font-bold text-gray-800 text-sm">{{ log.note }}</p>
-                            <p class="text-xs text-gray-400">{{ log.payer }} 先付 (分給: {{ log.split_among.join(', ') }})</p>
-                            <p class="text-xs text-gray-400 mt-1">
-                                每人分攤：<span class="font-bold text-indigo-600">{{ getIndividualShare(log) }}</span> {{ settings.currency }}
-                            </p>
+                            <p class="text-xs text-gray-400">{{ log.payer }} 先付</p>
                         </div>
                     </div>
                     <div class="text-right">
-                        <span class="font-bold text-gray-800 block">{{ log.amount.toLocaleString() }} <span class="text-xs font-normal">{{ settings.currency }}</span></span>
-                        <span class="text-[10px] text-gray-400">≈ NT${{ Math.round(log.amount * settings.rate).toLocaleString() }}</span>
+                        <span class="font-bold text-gray-800 block">{{ log.amount }} <span class="text-xs font-normal">{{ settings.currency }}</span></span>
+                        <span class="text-[10px] text-gray-400">≈ NT${{ Math.round(log.amount / settings.rate) }}</span>
                     </div>
                     <button @click="deleteExpense(idx)" class="ml-3 text-gray-300 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
                 </div>
@@ -303,25 +266,12 @@
     </nav>
 
     <div v-if="showAddEventModal" class="fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl w-full max-w-sm p-6 max-h-[80vh] overflow-y-auto">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6">
             <h3 class="text-lg font-bold mb-4">新增行程</h3>
-
-            <div class="mb-5 border-b border-gray-100 pb-4">
-                <p class="text-xs font-bold text-gray-500 mb-2">⚡️ 快速新增模板</p>
-                <div class="flex flex-wrap gap-2">
-                    <button v-for="tpl in eventTemplates" :key="tpl.title" 
-                        @click="useTemplate(tpl)"
-                        class="bg-indigo-50 text-indigo-700 text-xs px-3 py-1.5 rounded-full font-medium hover:bg-indigo-100 transition-colors">
-                        <i :class="tpl.icon" class="mr-1"></i> {{ tpl.title }}
-                    </button>
-                </div>
-            </div>
-
             <div class="space-y-3">
-                <p class="text-xs font-bold text-gray-500 mb-1">手動輸入</p>
                 <input v-model="newEvent.time" type="time" class="w-full bg-gray-50 p-2 rounded">
-                <input v-model="newEvent.title" placeholder="標題 (例: 晚餐)" class="w-full bg-gray-50 p-2 rounded">
-                <input v-model="newEvent.location" placeholder="地點 (例: 某某餐廳)" class="w-full bg-gray-50 p-2 rounded">
+                <input v-model="newEvent.title" placeholder="標題" class="w-full bg-gray-50 p-2 rounded">
+                <input v-model="newEvent.location" placeholder="地點" class="w-full bg-gray-50 p-2 rounded">
             </div>
             <div class="mt-4 flex space-x-2">
                 <button @click="showAddEventModal = false" class="flex-1 py-2 bg-gray-100 rounded text-gray-600">取消</button>
@@ -338,18 +288,22 @@
     createApp({
         setup() {
             // --- State ---
-            const currentTab = ref('schedule');
+            const currentTab = ref('preparation');
             const currentDay = ref('day1');
             const showSettings = ref(false);
             const showAddEventModal = ref(false);
             const isLoading = ref(false);
 
-            const members = ref(['我']); 
-            
             // 資料結構
-            const settings = ref({});
-            const weather = ref({ temp: null, code: null, desc: '' });
+            const defaultSettings = { destination: '東京', currency: 'JPY', rate: 0.23, lat: 35.6895, lon: 139.6917 };
+            const settings = ref(defaultSettings);
             
+            const weather = ref({ temp: null, code: null, desc: '' });
+            const members = ref(['我', '旅伴']);
+            
+            // 新增：旅伴輸入框 (用來接收設定中的文字並更新 members)
+            const membersInput = ref('我, 旅伴'); 
+
             const days = ref([
                 { id: 'day1', name: 'Day 1' },
                 { id: 'day2', name: 'Day 2' },
@@ -357,17 +311,6 @@
                 { id: 'day4', name: 'Day 4' },
                 { id: 'day5', name: 'Day 5' }
             ]);
-
-            const eventTemplates = ref([
-                { title: '飯店 Check-in', icon: 'fas fa-hotel', defaultTitle: '飯店 Check-in', defaultLocation: '填寫飯店名稱/地址' },
-                { title: '機場交通', icon: 'fas fa-plane-departure', defaultTitle: '機場/車站交通', defaultLocation: '填寫交通方式/站名' },
-                { title: '景點參觀', icon: 'fas fa-camera', defaultTitle: '景點參觀', defaultLocation: '填寫景點名稱' },
-                { title: '午餐', icon: 'fas fa-utensils', defaultTitle: '午餐', defaultLocation: '填寫午餐餐廳' },
-                { title: '晚餐', icon: 'fas fa-pizza-slice', defaultTitle: '晚餐', defaultLocation: '填寫晚餐餐廳' },
-                { title: '購物', icon: 'fas fa-shopping-bag', defaultTitle: '購物行程', defaultLocation: '填寫商場名稱' },
-                { title: '自由活動', icon: 'fas fa-walking', defaultTitle: '自由活動', defaultLocation: '無特定地點' },
-            ]);
-
 
             const preparationList = ref([
                 { text: '護照效期檢查', completed: false },
@@ -385,30 +328,18 @@
             const schedule = ref({ day1: [], day2: [], day3: [], day4: [], day5: [] });
             const expenses = ref([]);
             
-            // 輸入暫存
             const newEvent = ref({ time: '', title: '', location: '' });
-            const newExpense = ref({ 
-                payer: '我', 
-                amount: '', 
-                note: '',
-                split_among: ['我'] 
-            });
-
+            const newExpense = ref({ payer: '我', amount: '', note: '' });
             const newItemText = ref({ preparation: '', packing: '' });
 
-
             // --- API Logic (Magic) ---
-            
             const countryCurrencyMap = { 'JP': 'JPY', 'KR': 'KRW', 'US': 'USD', 'CN': 'CNY', 'HK': 'HKD', 'GB': 'GBP', 'FR': 'EUR', 'DE': 'EUR', 'IT': 'EUR', 'TH': 'THB', 'VN': 'VND' };
-            // V3.4 預設匯率變更為 JPY 兌換 TWD 的比值 (0.23 代表 1 JPY = 0.23 TWD)
-            const defaultSettings = { destination: '東京', currency: 'JPY', rate: 0.23, lat: 35.6895, lon: 139.6917 }; 
 
             const autoDetect = async () => {
                 if (!settings.value.destination) return;
                 isLoading.value = true;
                 
                 try {
-                    // 1. Geocoding
                     const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${settings.value.destination}&count=1&language=zh&format=json`);
                     const geoData = await geoRes.json();
                     
@@ -421,25 +352,13 @@
                             settings.value.currency = countryCurrencyMap[loc.country_code];
                         }
 
-                        // 2. Weather
                         fetchWeather();
 
-                        // 3. Exchange Rate Fetch (TWD base)
                         const rateRes = await fetch(`https://open.er-api.com/v6/latest/TWD`);
                         const rateData = await rateRes.json();
                         
                         if (rateData.rates && rateData.rates[settings.value.currency]) {
-                            const twdToBaseRate = rateData.rates[settings.value.currency];
-                            
-                            // V3.4 關鍵修改：將 TWD/Local 換算成 Local/TWD (取倒數)
-                            if (twdToBaseRate !== 0) {
-                                settings.value.rate = 1 / twdToBaseRate; 
-                                alert(`匯率偵測完成！1 ${settings.value.currency} ≈ ${settings.value.rate.toFixed(4)} TWD`);
-                            } else {
-                                alert('無法自動偵測匯率，請檢查目的地幣別或手動輸入。');
-                            }
-                        } else {
-                            alert('無法自動偵測匯率，請檢查目的地幣別或手動輸入。');
+                            settings.value.rate = rateData.rates[settings.value.currency]; 
                         }
                     } else {
                         alert('找不到該地點，請嘗試輸入英文名稱');
@@ -487,12 +406,13 @@
                     members: members.value,
                     preparationList: preparationList.value,
                     packingList: packingList.value,
+                    membersInput: membersInput.value // 儲存旅伴輸入框的文字
                 };
                 localStorage.setItem('myTripData_v2', JSON.stringify(data));
             };
 
             const loadFromLocal = () => {
-                settings.value = defaultSettings; 
+                settings.value = Object.assign({}, defaultSettings); // 確保有初始值
 
                 const raw = localStorage.getItem('myTripData_v2');
                 if (raw) {
@@ -500,9 +420,10 @@
                     Object.assign(settings.value, data.settings || {});
                     schedule.value = data.schedule || schedule.value;
                     expenses.value = data.expenses || expenses.value;
-                    members.value = data.members && data.members.length > 0 ? data.members : ['我']; 
+                    members.value = data.members || members.value;
                     preparationList.value = data.preparationList || preparationList.value;
                     packingList.value = data.packingList || packingList.value;
+                    membersInput.value = data.membersInput || membersInput.value; // 載入旅伴輸入框的文字
                     
                     if(settings.value.lat) fetchWeather();
                 } else {
@@ -510,49 +431,18 @@
                 }
             };
 
-            watch([schedule, expenses, settings, preparationList, packingList, members], saveToLocal, { deep: true });
+            // Watch changes to save
+            watch([schedule, expenses, settings, preparationList, packingList, membersInput], saveToLocal, { deep: true });
+
+            // Watch membersInput to update members array
+            watch(membersInput, (newVal) => {
+                members.value = newVal.split(',').map(m => m.trim()).filter(m => m.length > 0);
+                if (members.value.length === 0) {
+                    members.value = ['我']; // 確保至少有一個成員
+                }
+            });
 
             // --- Functional Logic ---
-            
-            // 旅伴管理
-            const addDefaultMember = () => {
-                members.value.push(`旅伴 ${members.value.length + 1}`);
-            };
-
-            const removeMember = (index) => {
-                const memberName = members.value[index];
-                if(confirm(`確定刪除旅伴 "${memberName}" 嗎？所有與他相關的分帳紀錄將可能導致餘額計算不準確！`)) {
-                    members.value.splice(index, 1);
-                    if (newExpense.value.payer === memberName) {
-                        newExpense.value.payer = members.value[0] || '';
-                    }
-                    newExpense.value.split_among = newExpense.value.split_among.filter(m => m !== memberName);
-                }
-            };
-
-            // 分帳管理
-            const toggleSplitMember = (member) => {
-                const index = newExpense.value.split_among.indexOf(member);
-                if (index > -1) {
-                    newExpense.value.split_among.splice(index, 1);
-                } else {
-                    newExpense.value.split_among.push(member);
-                }
-            };
-
-            const getIndividualShare = (log) => {
-                if (log.split_among.length === 0) return 0;
-                return (log.amount / log.split_among.length).toFixed(2);
-            }
-            
-            // 使用模板功能
-            const useTemplate = (tpl) => {
-                newEvent.value.time = '';
-                newEvent.value.title = tpl.defaultTitle;
-                newEvent.value.location = tpl.defaultLocation;
-            };
-
-            // 清單通用操作 (同 V3.3)
             const addItem = (listType) => {
                 const list = listType === 'preparation' ? preparationList.value : packingList.value;
                 const textRef = listType === 'preparation' ? newItemText.value.preparation : newItemText.value.packing;
@@ -571,12 +461,8 @@
                 }
             };
             
-            // 行程操作 (同 V3.3)
             const addEvent = () => {
-                if (!newEvent.value.title || !newEvent.value.time) {
-                    alert('請至少填寫時間與標題！');
-                    return;
-                }
+                if (!newEvent.value.title) return;
                 if (!schedule.value[currentDay.value]) schedule.value[currentDay.value] = [];
                 schedule.value[currentDay.value].push({ ...newEvent.value });
                 schedule.value[currentDay.value].sort((a, b) => a.time.localeCompare(b.time));
@@ -589,42 +475,25 @@
             };
 
             const openMap = (loc) => {
-                window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
+                window.open(`https://www.google.com/maps/search/?api=1&query=${loc}`, '_blank');
             };
 
-            // 分帳操作 (同 V3.3)
             const addExpense = () => {
-                if (!newExpense.value.amount || !newExpense.value.note) {
-                    alert('請填寫金額與項目！');
-                    return;
-                }
-                if (newExpense.value.split_among.length === 0) {
-                    alert('請選擇至少一位分帳對象！');
-                    return;
-                }
-
+                if (!newExpense.value.amount || !newExpense.value.note) return;
                 expenses.value.unshift({ 
                     payer: newExpense.value.payer, 
                     amount: parseFloat(newExpense.value.amount),
-                    note: newExpense.value.note,
-                    split_among: [...newExpense.value.split_among]
+                    note: newExpense.value.note 
                 });
-                
                 newExpense.value.amount = '';
                 newExpense.value.note = '';
-                newExpense.value.payer = members.value[0] || '';
-                newExpense.value.split_among = members.value.slice(); 
             };
             
             const deleteExpense = (index) => {
                 if(confirm('刪除此紀錄？')) expenses.value.splice(index, 1);
             };
 
-            // 設定操作 (同 V3.3)
             const saveSettings = () => {
-                newExpense.value.payer = members.value[0] || '';
-                newExpense.value.split_among = members.value.slice();
-
                 showSettings.value = false;
                 saveToLocal();
             };
@@ -637,54 +506,37 @@
             };
 
             // --- Computed ---
-            const totalExpenseOriginal = computed(() => expenses.value.reduce((acc, cur) => cur.amount ? acc + cur.amount : acc, 0));
+            const totalExpenseOriginal = computed(() => expenses.value.reduce((acc, cur) => acc + cur.amount, 0));
             
-            // V3.4 關鍵修改：總支出換算邏輯：金額 * 匯率
             const totalExpenseTwd = computed(() => {
                 if(!settings.value.rate || settings.value.rate === 0) return 0;
-                return totalExpenseOriginal.value * settings.value.rate;
+                return totalExpenseOriginal.value / settings.value.rate;
             });
 
-            // V3.4 關鍵修改：餘額計算邏輯：金額 * 匯率
             const getBalance = (member) => {
-                let paidTwd = 0;
-                let owedTwd = 0;
+                const perPersonTwd = totalExpenseTwd.value / members.value.length;
                 
-                if (!settings.value.rate || settings.value.rate === 0) return 0;
-
-                expenses.value.forEach(expense => {
-                    // V3.4 換算：金額 * 匯率
-                    const amountTwd = expense.amount * settings.value.rate; 
-                    const splitCount = expense.split_among.length;
-                    
-                    if (expense.payer === member) {
-                        paidTwd += amountTwd;
-                    }
-
-                    if (expense.split_among.includes(member) && splitCount > 0) {
-                        owedTwd += amountTwd / splitCount;
-                    }
-                });
+                const paidOriginal = expenses.value
+                    .filter(e => e.payer === member)
+                    .reduce((acc, cur) => acc + cur.amount, 0);
                 
-                return paidTwd - owedTwd;
+                const paidTwd = paidOriginal / settings.value.rate;
+                
+                return paidTwd - perPersonTwd;
             };
 
             // Init
             onMounted(() => {
                 loadFromLocal();
-                newExpense.value.payer = members.value[0] || '';
-                newExpense.value.split_among = members.value.slice();
             });
 
             return {
                 currentTab, currentDay, days, showSettings, isLoading,
-                settings, weather, members, schedule, expenses,
-                preparationList, packingList, newItemText, eventTemplates,
+                settings, weather, members, membersInput,
+                schedule, expenses, preparationList, packingList, newItemText,
                 showAddEventModal, newEvent, newExpense,
-                addDefaultMember, removeMember, toggleSplitMember,
-                getIndividualShare,
                 autoDetect, getWeatherIcon, saveSettings, resetAllData,
-                addItem, deleteItem, useTemplate,
+                addItem, deleteItem,
                 addEvent, deleteEvent, addExpense, deleteExpense, openMap,
                 totalExpenseTwd, totalExpenseOriginal, getBalance
             };
