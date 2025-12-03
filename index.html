@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>全能旅遊助手 V3.2</title>
+    <title>全能旅遊助手 V3.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -32,20 +32,20 @@
 
 <div id="app" class="app-container">
     
-    <div v-if="showSettings" class="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl my-auto"> 
+    <div v-if="showSettings" class="fixed inset-0 bg-black bg-opacity-60 z-[60] flex flex-col items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl max-h-[95vh] overflow-y-auto my-auto"> 
             <h3 class="text-xl font-bold mb-4 text-gray-800">🌍 旅程設定</h3>
             <div class="space-y-4">
                 <div>
                     <label class="text-xs font-bold text-gray-500 mb-1 block">目的地 (城市名)</label>
                     <div class="flex space-x-2">
-                        <input v-model="settings.destination" placeholder="例如: 東京, 首爾, 巴黎" class="flex-1 bg-gray-50 p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <input v-model="settings.destination" placeholder="例如: 東京, 日本 或 首爾, 韓國" class="flex-1 bg-gray-50 p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
                         <button @click="autoDetect" :disabled="isLoading" class="bg-indigo-600 text-white px-4 rounded-lg font-bold disabled:opacity-50">
                             <i v-if="!isLoading" class="fas fa-magic"></i>
                             <div v-else class="loader"></div>
                         </button>
                     </div>
-                    <p class="text-[10px] text-gray-400 mt-1">*點擊魔術棒自動偵測天氣與幣別 (現已支援中文輸入)</p>
+                    <p class="text-[10px] text-gray-400 mt-1">*點擊魔術棒自動偵測天氣與幣別 (建議輸入 城市, 國家)</p>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
@@ -339,7 +339,6 @@
                 isLoading.value = true;
                 
                 try {
-                    // V3.2 修正：使用 encodeURIComponent 確保中文地點能被 API 正確識別
                     const encodedDestination = encodeURIComponent(settings.value.destination);
                     const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodedDestination}&count=1&language=zh&format=json`);
                     const geoData = await geoRes.json();
@@ -351,6 +350,9 @@
                         
                         if (countryCurrencyMap[loc.country_code]) {
                             settings.value.currency = countryCurrencyMap[loc.country_code];
+                        } else {
+                            // 如果找不到幣別，先設回預設值
+                            settings.value.currency = 'TWD';
                         }
 
                         fetchWeather();
@@ -362,11 +364,12 @@
                             settings.value.rate = rateData.rates[settings.value.currency]; 
                         }
                     } else {
-                        alert('找不到該地點，請嘗試輸入更詳細的名稱');
+                        // V3.3 提示優化：建議輸入 城市, 國家
+                        alert('偵測失敗：找不到該地點。建議輸入格式為："城市, 國家" (例如: 東京, 日本)');
                     }
                 } catch (e) {
                     console.error(e);
-                    alert('偵測失敗，請檢查網路');
+                    alert('偵測失敗，請檢查網路連線。');
                 } finally {
                     isLoading.value = false;
                 }
