@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>全能旅遊助手 V3</title>
+    <title>全能旅遊助手 V3.1 (匯率優化)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -57,6 +57,7 @@
                     <div>
                         <label class="text-xs font-bold text-gray-500 mb-1 block">匯率 (1 TWD = ?)</label>
                         <input v-model="settings.rate" type="number" step="0.0001" class="w-full bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
+                        <p class="text-[10px] text-red-500 mt-1 font-bold">*請以您實際兌換到的匯率手動調整，以確保分帳精準！</p>
                     </div>
                 </div>
                 
@@ -352,12 +353,15 @@
                         // 2. Weather
                         fetchWeather();
 
-                        // 3. Exchange Rate
+                        // 3. Exchange Rate (Enhanced Fetch)
                         const rateRes = await fetch(`https://open.er-api.com/v6/latest/TWD`);
                         const rateData = await rateRes.json();
                         
                         if (rateData.rates && rateData.rates[settings.value.currency]) {
                             settings.value.rate = rateData.rates[settings.value.currency]; 
+                            alert(`匯率偵測完成！1 TWD ≈ ${settings.value.rate.toFixed(4)} ${settings.value.currency}`);
+                        } else {
+                            alert('無法自動偵測匯率，請檢查目的地幣別或手動輸入。');
                         }
                     } else {
                         alert('找不到該地點，請嘗試輸入英文名稱');
@@ -468,7 +472,8 @@
             };
 
             const openMap = (loc) => {
-                window.open(`https://www.google.com/maps/search/?api=1&query=${loc}`, '_blank');
+                // Modified to use a better URL format for universal map lookup
+                window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
             };
 
             // 分帳操作
