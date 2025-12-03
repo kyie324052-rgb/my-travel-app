@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>全能旅遊助手 V3.1</title>
+    <title>全能旅遊助手 V3.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -32,20 +32,20 @@
 
 <div id="app" class="app-container">
     
-    <div v-if="showSettings" class="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl max-h-[90vh] overflow-y-auto"> 
+    <div v-if="showSettings" class="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl my-auto"> 
             <h3 class="text-xl font-bold mb-4 text-gray-800">🌍 旅程設定</h3>
             <div class="space-y-4">
                 <div>
                     <label class="text-xs font-bold text-gray-500 mb-1 block">目的地 (城市名)</label>
                     <div class="flex space-x-2">
-                        <input v-model="settings.destination" placeholder="例如: 大阪, 首爾, 巴黎" class="flex-1 bg-gray-50 p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <input v-model="settings.destination" placeholder="例如: 東京, 首爾, 巴黎" class="flex-1 bg-gray-50 p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
                         <button @click="autoDetect" :disabled="isLoading" class="bg-indigo-600 text-white px-4 rounded-lg font-bold disabled:opacity-50">
                             <i v-if="!isLoading" class="fas fa-magic"></i>
                             <div v-else class="loader"></div>
                         </button>
                     </div>
-                    <p class="text-[10px] text-gray-400 mt-1">*點擊魔術棒自動偵測天氣與幣別</p>
+                    <p class="text-[10px] text-gray-400 mt-1">*點擊魔術棒自動偵測天氣與幣別 (現已支援中文輸入)</p>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
@@ -62,6 +62,7 @@
                 <div>
                     <label class="text-xs font-bold text-gray-500 mb-1 block">旅伴名單 (用逗號分開)</label>
                     <textarea v-model="membersInput" rows="2" placeholder="我, 旅伴, Peter" class="w-full bg-gray-50 p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    <p class="text-[10px] text-gray-400 mt-1">*第一個旅伴會是預設的付款人</p>
                 </div>
 
                 <button @click="saveSettings" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-200 mt-2">
@@ -300,8 +301,6 @@
             
             const weather = ref({ temp: null, code: null, desc: '' });
             const members = ref(['我', '旅伴']);
-            
-            // 新增：旅伴輸入框 (用來接收設定中的文字並更新 members)
             const membersInput = ref('我, 旅伴'); 
 
             const days = ref([
@@ -340,7 +339,9 @@
                 isLoading.value = true;
                 
                 try {
-                    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${settings.value.destination}&count=1&language=zh&format=json`);
+                    // V3.2 修正：使用 encodeURIComponent 確保中文地點能被 API 正確識別
+                    const encodedDestination = encodeURIComponent(settings.value.destination);
+                    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodedDestination}&count=1&language=zh&format=json`);
                     const geoData = await geoRes.json();
                     
                     if (geoData.results && geoData.results.length > 0) {
@@ -361,7 +362,7 @@
                             settings.value.rate = rateData.rates[settings.value.currency]; 
                         }
                     } else {
-                        alert('找不到該地點，請嘗試輸入英文名稱');
+                        alert('找不到該地點，請嘗試輸入更詳細的名稱');
                     }
                 } catch (e) {
                     console.error(e);
@@ -406,13 +407,13 @@
                     members: members.value,
                     preparationList: preparationList.value,
                     packingList: packingList.value,
-                    membersInput: membersInput.value // 儲存旅伴輸入框的文字
+                    membersInput: membersInput.value
                 };
                 localStorage.setItem('myTripData_v2', JSON.stringify(data));
             };
 
             const loadFromLocal = () => {
-                settings.value = Object.assign({}, defaultSettings); // 確保有初始值
+                settings.value = Object.assign({}, defaultSettings);
 
                 const raw = localStorage.getItem('myTripData_v2');
                 if (raw) {
@@ -423,7 +424,7 @@
                     members.value = data.members || members.value;
                     preparationList.value = data.preparationList || preparationList.value;
                     packingList.value = data.packingList || packingList.value;
-                    membersInput.value = data.membersInput || membersInput.value; // 載入旅伴輸入框的文字
+                    membersInput.value = data.membersInput || membersInput.value;
                     
                     if(settings.value.lat) fetchWeather();
                 } else {
@@ -438,7 +439,7 @@
             watch(membersInput, (newVal) => {
                 members.value = newVal.split(',').map(m => m.trim()).filter(m => m.length > 0);
                 if (members.value.length === 0) {
-                    members.value = ['我']; // 確保至少有一個成員
+                    members.value = ['我'];
                 }
             });
 
