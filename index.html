@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>全能旅遊助手 V3.3 (彈性分帳與旅伴管理)</title>
+    <title>全能旅遊助手 V3.4 (匯率基準調整)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -56,7 +56,7 @@
                         <input v-model="settings.currency" class="w-full bg-gray-50 p-3 rounded-lg border border-gray-200 text-center uppercase">
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-gray-500 mb-1 block">匯率 (1 TWD = ?)</label>
+                        <label class="text-xs font-bold text-gray-500 mb-1 block">匯率 (1 {{ settings.currency }} = ? TWD)</label>
                         <input v-model="settings.rate" type="number" step="0.0001" class="w-full bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
                         <p class="text-[10px] text-red-500 mt-1 font-bold">*請以您實際兌換到的匯率手動調整，以確保分帳精準！</p>
                     </div>
@@ -103,7 +103,7 @@
             </div>
             <div class="text-right">
                 <div class="bg-white text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold shadow-sm">
-                    1 TWD ≈ {{ parseFloat(settings.rate).toFixed(3) }} {{ settings.currency }}
+                    1 {{ settings.currency }} ≈ {{ parseFloat(settings.rate).toFixed(3) }} TWD
                 </div>
             </div>
         </div>
@@ -271,7 +271,7 @@
                     </div>
                     <div class="text-right">
                         <span class="font-bold text-gray-800 block">{{ log.amount.toLocaleString() }} <span class="text-xs font-normal">{{ settings.currency }}</span></span>
-                        <span class="text-[10px] text-gray-400">≈ NT${{ Math.round(log.amount / settings.rate).toLocaleString() }}</span>
+                        <span class="text-[10px] text-gray-400">≈ NT${{ Math.round(log.amount * settings.rate).toLocaleString() }}</span>
                     </div>
                     <button @click="deleteExpense(idx)" class="ml-3 text-gray-300 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
                 </div>
@@ -344,7 +344,6 @@
             const showAddEventModal = ref(false);
             const isLoading = ref(false);
 
-            // V3.3 初始化成員名單為單人，並確保第一個成員為預設付款人
             const members = ref(['我']); 
             
             // 資料結構
@@ -359,7 +358,6 @@
                 { id: 'day5', name: 'Day 5' }
             ]);
 
-            // V3.2 新增：快速新增模板
             const eventTemplates = ref([
                 { title: '飯店 Check-in', icon: 'fas fa-hotel', defaultTitle: '飯店 Check-in', defaultLocation: '填寫飯店名稱/地址' },
                 { title: '機場交通', icon: 'fas fa-plane-departure', defaultTitle: '機場/車站交通', defaultLocation: '填寫交通方式/站名' },
@@ -389,7 +387,6 @@
             
             // 輸入暫存
             const newEvent = ref({ time: '', title: '', location: '' });
-            // V3.3 更改：新增 split_among 陣列
             const newExpense = ref({ 
                 payer: '我', 
                 amount: '', 
@@ -403,7 +400,8 @@
             // --- API Logic (Magic) ---
             
             const countryCurrencyMap = { 'JP': 'JPY', 'KR': 'KRW', 'US': 'USD', 'CN': 'CNY', 'HK': 'HKD', 'GB': 'GBP', 'FR': 'EUR', 'DE': 'EUR', 'IT': 'EUR', 'TH': 'THB', 'VN': 'VND' };
-            const defaultSettings = { destination: '東京', currency: 'JPY', rate: 0.23, lat: 35.6895, lon: 139.6917 };
+            // V3.4 預設匯率變更為 JPY 兌換 TWD 的比值 (0.23 代表 1 JPY = 0.23 TWD)
+            const defaultSettings = { destination: '東京', currency: 'JPY', rate: 0.23, lat: 35.6895, lon: 139.6917 }; 
 
             const autoDetect = async () => {
                 if (!settings.value.destination) return;
@@ -426,13 +424,20 @@
                         // 2. Weather
                         fetchWeather();
 
-                        // 3. Exchange Rate (Enhanced Fetch)
+                        // 3. Exchange Rate Fetch (TWD base)
                         const rateRes = await fetch(`https://open.er-api.com/v6/latest/TWD`);
                         const rateData = await rateRes.json();
                         
                         if (rateData.rates && rateData.rates[settings.value.currency]) {
-                            settings.value.rate = rateData.rates[settings.value.currency]; 
-                            alert(`匯率偵測完成！1 TWD ≈ ${settings.value.rate.toFixed(4)} ${settings.value.currency}`);
+                            const twdToBaseRate = rateData.rates[settings.value.currency];
+                            
+                            // V3.4 關鍵修改：將 TWD/Local 換算成 Local/TWD (取倒數)
+                            if (twdToBaseRate !== 0) {
+                                settings.value.rate = 1 / twdToBaseRate; 
+                                alert(`匯率偵測完成！1 ${settings.value.currency} ≈ ${settings.value.rate.toFixed(4)} TWD`);
+                            } else {
+                                alert('無法自動偵測匯率，請檢查目的地幣別或手動輸入。');
+                            }
                         } else {
                             alert('無法自動偵測匯率，請檢查目的地幣別或手動輸入。');
                         }
@@ -487,16 +492,14 @@
             };
 
             const loadFromLocal = () => {
-                settings.value = defaultSettings; // 確保有初始值
+                settings.value = defaultSettings; 
 
                 const raw = localStorage.getItem('myTripData_v2');
                 if (raw) {
                     const data = JSON.parse(raw);
-                    // 使用 Object.assign 確保新舊屬性都能被保留
                     Object.assign(settings.value, data.settings || {});
                     schedule.value = data.schedule || schedule.value;
                     expenses.value = data.expenses || expenses.value;
-                    // V3.3 處理 members: 如果舊資料沒有 members，則設定為 ['我']
                     members.value = data.members && data.members.length > 0 ? data.members : ['我']; 
                     preparationList.value = data.preparationList || preparationList.value;
                     packingList.value = data.packingList || packingList.value;
@@ -507,12 +510,11 @@
                 }
             };
 
-            // Watch changes to save
             watch([schedule, expenses, settings, preparationList, packingList, members], saveToLocal, { deep: true });
 
             // --- Functional Logic ---
             
-            // V3.3 旅伴管理
+            // 旅伴管理
             const addDefaultMember = () => {
                 members.value.push(`旅伴 ${members.value.length + 1}`);
             };
@@ -521,17 +523,14 @@
                 const memberName = members.value[index];
                 if(confirm(`確定刪除旅伴 "${memberName}" 嗎？所有與他相關的分帳紀錄將可能導致餘額計算不準確！`)) {
                     members.value.splice(index, 1);
-                    // 檢查 newExpense 的 payer 和 split_among 是否還存在
                     if (newExpense.value.payer === memberName) {
                         newExpense.value.payer = members.value[0] || '';
                     }
                     newExpense.value.split_among = newExpense.value.split_among.filter(m => m !== memberName);
-                    
-                    // TODO: 理論上應清理舊的 expenses 紀錄，但為簡單化，暫時忽略
                 }
             };
 
-            // V3.3 分帳管理
+            // 分帳管理
             const toggleSplitMember = (member) => {
                 const index = newExpense.value.split_among.indexOf(member);
                 if (index > -1) {
@@ -543,18 +542,17 @@
 
             const getIndividualShare = (log) => {
                 if (log.split_among.length === 0) return 0;
-                // 使用 toFixed(2) 確保顯示兩位小數
                 return (log.amount / log.split_among.length).toFixed(2);
             }
             
-            // V3.2 使用模板功能
+            // 使用模板功能
             const useTemplate = (tpl) => {
                 newEvent.value.time = '';
                 newEvent.value.title = tpl.defaultTitle;
                 newEvent.value.location = tpl.defaultLocation;
             };
 
-            // 清單通用操作
+            // 清單通用操作 (同 V3.3)
             const addItem = (listType) => {
                 const list = listType === 'preparation' ? preparationList.value : packingList.value;
                 const textRef = listType === 'preparation' ? newItemText.value.preparation : newItemText.value.packing;
@@ -573,7 +571,7 @@
                 }
             };
             
-            // 行程操作
+            // 行程操作 (同 V3.3)
             const addEvent = () => {
                 if (!newEvent.value.title || !newEvent.value.time) {
                     alert('請至少填寫時間與標題！');
@@ -591,11 +589,10 @@
             };
 
             const openMap = (loc) => {
-                // Modified to use a better URL format for universal map lookup
                 window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
             };
 
-            // 分帳操作
+            // 分帳操作 (同 V3.3)
             const addExpense = () => {
                 if (!newExpense.value.amount || !newExpense.value.note) {
                     alert('請填寫金額與項目！');
@@ -610,13 +607,11 @@
                     payer: newExpense.value.payer, 
                     amount: parseFloat(newExpense.value.amount),
                     note: newExpense.value.note,
-                    // V3.3: 儲存分帳對象
                     split_among: [...newExpense.value.split_among]
                 });
                 
                 newExpense.value.amount = '';
                 newExpense.value.note = '';
-                // 重設預設值：付款人為第一個旅伴，分帳對象為所有旅伴
                 newExpense.value.payer = members.value[0] || '';
                 newExpense.value.split_among = members.value.slice(); 
             };
@@ -625,9 +620,8 @@
                 if(confirm('刪除此紀錄？')) expenses.value.splice(index, 1);
             };
 
-            // 設定操作
+            // 設定操作 (同 V3.3)
             const saveSettings = () => {
-                // V3.3: 儲存時同步 newExpense 的分帳對象預設值
                 newExpense.value.payer = members.value[0] || '';
                 newExpense.value.split_among = members.value.slice();
 
@@ -645,12 +639,13 @@
             // --- Computed ---
             const totalExpenseOriginal = computed(() => expenses.value.reduce((acc, cur) => cur.amount ? acc + cur.amount : acc, 0));
             
+            // V3.4 關鍵修改：總支出換算邏輯：金額 * 匯率
             const totalExpenseTwd = computed(() => {
                 if(!settings.value.rate || settings.value.rate === 0) return 0;
-                return totalExpenseOriginal.value / settings.value.rate;
+                return totalExpenseOriginal.value * settings.value.rate;
             });
 
-            // V3.3 核心計算邏輯：計算每個成員的總餘額
+            // V3.4 關鍵修改：餘額計算邏輯：金額 * 匯率
             const getBalance = (member) => {
                 let paidTwd = 0;
                 let owedTwd = 0;
@@ -658,28 +653,25 @@
                 if (!settings.value.rate || settings.value.rate === 0) return 0;
 
                 expenses.value.forEach(expense => {
-                    const amountTwd = expense.amount / settings.value.rate;
+                    // V3.4 換算：金額 * 匯率
+                    const amountTwd = expense.amount * settings.value.rate; 
                     const splitCount = expense.split_among.length;
                     
                     if (expense.payer === member) {
-                        // 1. 他支付的錢
                         paidTwd += amountTwd;
                     }
 
                     if (expense.split_among.includes(member) && splitCount > 0) {
-                        // 2. 他應該分攤的錢
                         owedTwd += amountTwd / splitCount;
                     }
                 });
                 
-                // 餘額 = (支付的錢 - 應攤提的錢)
                 return paidTwd - owedTwd;
             };
 
             // Init
             onMounted(() => {
                 loadFromLocal();
-                // 確保 newExpense 的分帳對象預設值與 members 同步
                 newExpense.value.payer = members.value[0] || '';
                 newExpense.value.split_among = members.value.slice();
             });
@@ -689,8 +681,8 @@
                 settings, weather, members, schedule, expenses,
                 preparationList, packingList, newItemText, eventTemplates,
                 showAddEventModal, newEvent, newExpense,
-                addDefaultMember, removeMember, toggleSplitMember, // 導出新函數
-                getIndividualShare, // 導出新函數
+                addDefaultMember, removeMember, toggleSplitMember,
+                getIndividualShare,
                 autoDetect, getWeatherIcon, saveSettings, resetAllData,
                 addItem, deleteItem, useTemplate,
                 addEvent, deleteEvent, addExpense, deleteExpense, openMap,
